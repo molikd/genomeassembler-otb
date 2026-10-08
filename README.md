@@ -22,7 +22,7 @@
 ## Introduction
 
 **nf-core/genomeassembler** is a bioinformatics pipeline that carries out genome assembly, polishing and scaffolding from long reads (ONT or pacbio). Assembly can be done via `flye` or `hifiasm`, or combinations of both, polishing can be carried out with `medaka` (ONT), `dorado` (ONT only, experimental) or `pilon` (requires short-reads), and scaffolding can be done using `LINKS`, `Longstitch`, both using long-reads, `yahs` if HiC reads are availble, or `RagTag` if a reference is available. Quality control includes `BUSCO`, `QUAST` and `merqury` (requires short-reads).
-Currently, this pipeline does not implement phasing of polyploid genomes.
+This fork adds opt-in diploid HiFi + Hi-C phasing with `--hifiasm_hic_phasing`; see [OTB integration](docs/otb-integration.md). Other polyploid phasing modes are not implemented.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/genomeassembler_dark.svg">

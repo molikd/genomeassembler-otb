@@ -146,8 +146,25 @@ workflow PIPELINE_INITIALISATION {
                 ]
 
         }
-        .map {
-            it -> [meta: it]
+        .map { meta ->
+            if (meta.hifiasm_hic_phasing) {
+                if (meta.strategy != 'single' || meta.assembler_hifi != 'hifiasm' || !meta.hifireads || meta.ontreads || meta.assembly) {
+                    error("Sample ${meta.id}: hifiasm_hic_phasing requires single-strategy hifiasm assembly with HiFi reads only and no supplied assembly.")
+                }
+                if (!meta.hic_F || !meta.hic_R) {
+                    error("Sample ${meta.id}: hifiasm_hic_phasing requires both hic_F and hic_R.")
+                }
+                if (meta.hic_trim) {
+                    error("Sample ${meta.id}: hifiasm_hic_phasing currently requires untrimmed Hi-C reads (hic_trim=false).")
+                }
+                def phasing_args = [meta.hifiasm_args, meta.assembler_hifi_args].findAll { it }.join(' ')
+                if (phasing_args =~ /(^|\s)--(primary|ont)(\s|$|=)/) {
+                    error("Sample ${meta.id}: --primary and --ont are incompatible with hifiasm_hic_phasing.")
+                }
+                // Keep the pair across read preparation, which removes hic_F/hic_R.
+                meta = meta + [phasing_reads: [file(meta.hic_F, checkIfExists: true), file(meta.hic_R, checkIfExists: true)]]
+            }
+            [meta: meta]
         }
     ch_samplesheet.dump(tag: "PARSED INPUTS:")
 
