@@ -3,6 +3,24 @@
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/)
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## Unreleased fork additions
+
+- Add optional FHR YAML and annotated FASTA export using pinned FHR-Nextflow
+  modules and FHR-File-Converter 0.3.0. A JSON input config supplies shared defaults
+  and sample provenance; creation dates are generated in America/Detroit. Export covers retained assembly stages and phased samples,
+  and validates actual annotated-file checksums before publishing each output.
+- Add a real Nextflow integration harness for compressed/plain FASTA, byte
+  preservation, sample metadata routing and invalid-input rejection.
+
+- Fix read preparation retaining untrimmed short reads, Hi-C-only samples and
+  supplied assemblies without long reads; select HiFi QC reads for HiFi-only inputs.
+- Honor explicit false samplesheet flags, reject duplicate and colliding derived
+  sample IDs, and require both haplotypes from every phased assembly.
+- Normalize the Dorado polished-assembly metadata key for downstream consumers,
+  correct the Flye scaffold argument selector, and preserve source paths in the
+  genomeqc manifest for supplied assemblies.
+- Include `procps` in the FHR Docker image for Nextflow task metrics.
+
 ## v2.0.0 - 'Saffron Vulture' - [2026-xx-xx]
 
 This is a major release, with breaking changes.

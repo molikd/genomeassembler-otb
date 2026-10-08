@@ -101,7 +101,12 @@ workflow PIPELINE_INITIALISATION {
     //
     // Create channel from input file provided through params.input
     //
-    ch_samplesheet = channel.fromList(samplesheetToList(params.input, "assets/schema_input.json"))
+    def samplesheet_rows = samplesheetToList(params.input, "assets/schema_input.json")
+    def input_ids = samplesheet_rows.collect { row -> row[0].id.toString() } as Set
+    if (input_ids.size() != samplesheet_rows.size()) {
+        error('Samplesheet sample IDs must be unique.')
+    }
+    ch_samplesheet = channel.fromList(samplesheet_rows)
         /*
         This is a somewhat crucial step, where the samplesheet and params are used to determine per-sample parameters.
         This has been greatly simplified thanks to @nvnieuwk
@@ -109,7 +114,7 @@ workflow PIPELINE_INITIALISATION {
         .map { it ->
             def meta = it[0]
             // Populate everything that has no value with the value from params
-            return meta.collectEntries { key, val -> key == "group" ? [ key, val ] : [ key, val ?: params.get(key) ] }
+            return meta.collectEntries { key, val -> key == "group" ? [ key, val ] : [ key, val == null || val == '' || val == [] ? params.get(key) : val ] }
         }
         .map{
             it ->
@@ -136,18 +141,23 @@ workflow PIPELINE_INITIALISATION {
             def lift_annotations=   it.use_ref && it.ref_gff ? true : false
             it + [
                     group: group,
+                    provided_assembly: it.assembly ? true : false,
                     assembler_ont: assembler_ont,
                     assembler_hifi: assembler_hifi,
                     polish: polish,
                     merqury: merqury,
                     use_short_reads: use_short_reads,
                     paired: it.shortread_F && it.shortread_R ? true : false,
-                    lift_annotations: lift_annotations
+                    lift_annotations: lift_annotations,
+                    qc_reads: it.hifireads && !it.ontreads ? 'hifi' : it.ontreads && !it.hifireads ? 'ont' : it.qc_reads
                 ]
 
         }
         .map { meta ->
             if (meta.hifiasm_hic_phasing) {
+                if (["${meta.id}-hap1".toString(), "${meta.id}-hap2".toString()].any { input_ids.contains(it) }) {
+                    error("Sample ${meta.id}: derived haplotype IDs collide with another samplesheet sample.")
+                }
                 if (meta.strategy != 'single' || meta.assembler_hifi != 'hifiasm' || !meta.hifireads || meta.ontreads || meta.assembly) {
                     error("Sample ${meta.id}: hifiasm_hic_phasing requires single-strategy hifiasm assembly with HiFi reads only and no supplied assembly.")
                 }

@@ -185,10 +185,17 @@ workflow ASSEMBLE {
         }
     HIFIASM_HIC(phased_inputs.long_reads, [[], [], []], phased_inputs.hic_reads, [[], []])
 
-    phased_contigs = HIFIASM_HIC.out.hap1_contigs
-        .map { meta, gfa -> [meta + [id: "${meta.id}-hap1", source_sample: meta.id, haplotype: 1, hic_reads: meta.phasing_reads, assembly_map_bam: null], gfa] }
-        .mix(HIFIASM_HIC.out.hap2_contigs
-            .map { meta, gfa -> [meta + [id: "${meta.id}-hap2", source_sample: meta.id, haplotype: 2, hic_reads: meta.phasing_reads, assembly_map_bam: null], gfa] })
+    // Require both haplotypes for every requested sample before emitting either.
+    phased_contigs = phased_inputs.long_reads
+        .map { meta, reads, ul -> [meta.id, meta] }
+        .join(HIFIASM_HIC.out.hap1_contigs.map { meta, gfa -> [meta.id, gfa] }, failOnMismatch: true, failOnDuplicate: true)
+        .join(HIFIASM_HIC.out.hap2_contigs.map { meta, gfa -> [meta.id, gfa] }, failOnMismatch: true, failOnDuplicate: true)
+        .flatMap { id, meta, hap1, hap2 ->
+            [
+                [meta + [id: "${id}-hap1".toString(), source_sample: id, haplotype: 1, hic_reads: meta.phasing_reads, assembly_map_bam: null], hap1],
+                [meta + [id: "${id}-hap2".toString(), source_sample: id, haplotype: 2, hic_reads: meta.phasing_reads, assembly_map_bam: null], hap2]
+            ]
+        }
     GFA2FA_HAP(phased_contigs)
 
     // hifiasm produces GFA files

@@ -1,3 +1,4 @@
+include { FHR_EXPORT; loadFhrConfig; fhrRecord; assemblyOutputs } from '../subworkflows/local/fhr/main'
 /*
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     IMPORT MODULES / SUBWORKFLOWS / FUNCTIONS
@@ -114,6 +115,14 @@ workflow GENOMEASSEMBLER {
         .no_scaffold
         .mix(SCAFFOLD.out.ch_main)
 
+    // Enumerate every retained assembly once for both FHR and genomeqc exports.
+    ch_assembly_outputs = ch_main_scaffolded.flatMap { row -> assemblyOutputs(row.meta) }
+    def fhr_config = params.fhr_config ? loadFhrConfig(params.fhr_config) : null
+    ch_fhr_records = fhr_config
+        ? ch_assembly_outputs.map { meta, stage, assembly, subdir -> fhrRecord(meta, stage, assembly, fhr_config) }
+        : channel.empty()
+    FHR_EXPORT(ch_fhr_records)
+
     fastplong_jsons = PREPARE.out.fastplong_json_reports
         .map { it -> it[1] }
         .unique()
@@ -152,6 +161,7 @@ workflow GENOMEASSEMBLER {
 
     def ch_collated_versions = softwareVersionsToYAML(topic_versions.versions_file)
         .mix(topic_versions_string)
+        .mix(FHR_EXPORT.out.versions.map { meta, versions -> "FHR_EXPORT:\n  ${versions.text.trim()}" }.distinct())
 
     ch_collated_versions
         .collectFile(
@@ -242,45 +252,14 @@ workflow GENOMEASSEMBLER {
 
     def outdir_uri = file(params.outdir).toUriString()
 
-    def ch_assembly_manifest = ch_main_scaffolded
-        .map { it ->
-            def meta = it.meta
-            def subout =
-                    // Assembly publishdirs are a bit more specific
-                    meta.strategy == "single" ? (
-                        meta.assembler_ont == "flye" || meta.assembler_hifi == "flye"
-                            ? 'assembly/flye'
-                            : meta.assembler_ont == 'hifiasm'
-                                ? 'assembly/hifiasm_ont'
-                                : 'assembly/hifiasm'
-                    ) :
-                    meta.strategy == "hybrid"
-                        ? 'assembly/hifiasm'
-                        : 'assembly/ragtag'
-
-                // A list of ids, stage, files (in work), the candidate output folder
-                [
-                [ meta.id, 'scaffold_ragtag', meta.scaffolds ? meta.scaffolds.ragtag ?: null : null,           'scaffold/ragtag'     ],
-                [ meta.id, 'scaffold_hic' , meta.scaffolds ? meta.scaffolds.hic ?: null : null,              'scaffold/hic/yahs'   ],
-                [ meta.id, 'scaffold_longstitch', meta.scaffolds ? meta.scaffolds.longstitch ?: null : null,       'scaffold/longstitch' ],
-                [ meta.id, 'scaffold_links', meta.scaffolds ? meta.scaffolds.links ?: null : null,            'scaffold/links'      ],
-                [ meta.id, 'polish_pilon', meta.polished ? meta.polished.pilon ?: null : null,            'polish/pilon'        ],
-                [ meta.id, 'polish_medaka', meta.polished ? meta.polished.medaka ?: null : null,           'polish/medaka'       ],
-                [ meta.id, 'polish_dorado', meta.polished ? meta.polished.dorado ?: null : null,           'polish/dorado'       ],
-                [ meta.id, 'initial_assembly', meta.assembly, subout
-                ]
-                ]
-        }
-        .flatMap( { it -> it } )
-        .filter {
-            _id, _stage, assembly_file, _subdir -> assembly_file != null
-        }
-        .map {
-            id, stage ,assembly_file, subdir ->
-                [
-                    "${id}-${stage}",
-                    "${outdir_uri}/${id}/${subdir}/${file(assembly_file).name}"
-                ]
+    def ch_assembly_manifest = ch_assembly_outputs
+        .map { meta, stage, assembly_file, subdir ->
+            [
+                "${meta.id}-${stage}",
+                stage == 'initial_assembly' && meta.provided_assembly
+                    ? file(assembly_file).toUriString()
+                    : "${outdir_uri}/${meta.id}/${subdir}/${file(assembly_file).name}"
+            ]
         }
 
     ch_assembly_manifest
@@ -297,4 +276,6 @@ workflow GENOMEASSEMBLER {
 
     emit:
     _report
+    fhr_yaml = FHR_EXPORT.out.yaml
+    fhr_fasta = FHR_EXPORT.out.sequence
 }

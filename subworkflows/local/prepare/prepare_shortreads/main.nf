@@ -9,21 +9,21 @@ workflow PREPARE_SHORTREADS {
 
     main:
 
-    shortreads = shortreads_in
-        .map { row -> row.meta.shortread_F ? create_shortread_channel(row.meta) : row } // function below
-        .branch {
-            it ->
-                trim: it.meta.shortread_trim
-                no_trim: !it.meta.shortread_trim
+    prepared_inputs = shortreads_in
+        .map { row ->
+            def prepared = row.meta.shortread_F && row.meta.use_short_reads ? create_shortread_channel(row.meta) : row
+            prepared.meta.hic_F && prepared.meta.scaffold_hic ? create_hic_shortread_channel(prepared.meta) : prepared
         }
 
-    hic_trim = shortreads_in
-        .map { row -> (row.meta.hic_F && row.meta.scaffold_hic) ? create_hic_shortread_channel(row.meta) : row }
-        .branch {
-            row ->
-                trim: row.meta.hic_trim && row.meta.scaffold_hic
-                no_trim: !row.meta.hic_trim
-        }
+    shortreads = prepared_inputs.branch { row ->
+        trim: row.meta.shortreads && row.meta.shortread_trim
+        no_trim: true
+    }
+
+    hic_trim = prepared_inputs.branch { row ->
+        trim: row.meta.hic_reads && row.meta.hic_trim
+        no_trim: true
+    }
 
     hic_trim.trim.dump(tag: "hic trim channel")
 
@@ -37,7 +37,8 @@ workflow PREPARE_SHORTREADS {
                 [
                     [
                         id: it[1], // the group
-                        metas: it[0]
+                        metas: it[0],
+                        single_end: it[0][0].single_end
                     ],
                     it[0].shortreads[0], // Pull path from meta
                     []
@@ -62,7 +63,8 @@ workflow PREPARE_SHORTREADS {
                 [
                     [
                         id: it[1], // the group
-                        metas: it[0]
+                        metas: it[0],
+                        single_end: false
                     ],
                     it[0].hic_reads[0], // Pull path from meta
                     []
@@ -73,7 +75,7 @@ workflow PREPARE_SHORTREADS {
                 .trim
                 .filter { it -> !it.meta.group }
                 .map {
-                    it -> [ it.meta, it.meta.hic_reads, [] ]
+                    it -> [ it.meta + [single_end: false], it.meta.hic_reads, [] ]
                 }
         )
 
@@ -111,12 +113,12 @@ workflow PREPARE_SHORTREADS {
                 .map { it -> [ meta: it[0] - it[0].subMap("hic_reads") + [ hic_reads: it[1] ] ] }
         )
 
-    shortreads = trimmed_reads
-        .mix( shortreads.no_trim )
+    ch_shortreads_prepared = trimmed_reads
+        .mix(shortreads.no_trim)
     // add HiC trimmed to those that need it
 
-    shortreads = shortreads
-        .filter { row -> row.meta.hic_trim && row.meta.scaffold_hic }
+    shortreads = ch_shortreads_prepared
+        .filter { row -> row.meta.hic_reads && row.meta.hic_trim && row.meta.scaffold_hic }
         .map { row -> [ row.meta.id, row.meta ] }
         .combine(
             hic_trimmed_reads
@@ -135,9 +137,8 @@ workflow PREPARE_SHORTREADS {
                 ]
         }
         .mix(
-            trimmed_reads
-                .filter { row -> !(row.meta.hic_trim && row.meta.scaffold_hic) }
-                .map { it-> [meta: it.meta - it.meta.subMap("hic_reads") + [hic_reads: null]]}
+            ch_shortreads_prepared
+                .filter { row -> !(row.meta.hic_reads && row.meta.hic_trim && row.meta.scaffold_hic) }
         )
 
     meryl_in = shortreads

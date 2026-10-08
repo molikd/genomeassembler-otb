@@ -77,7 +77,6 @@
             },
             "hifiasm_hic_phasing": {
                 "type": "boolean",
-                "default": false,
                 "description": "Generate both Hi-C-phased haplotypes with hifiasm (single strategy, HiFi reads and paired Hi-C reads required).",
                 "meta": [
                     "hifiasm_hic_phasing"
@@ -219,7 +218,6 @@
             },
             "merqury": {
                 "type": "boolean",
-                "default": false,
                 "description": "Run `merqury` if short reads are provided.",
                 "meta": ["merqury"]
             },
@@ -280,7 +278,6 @@
             "lift_annotations": {
                 "type": "boolean",
                 "description": "Lift-over annotations (requires `ref_gff`).",
-                "default": false,
                 "meta": ["lift_annotations"]
             },
             "use_short_reads": {
@@ -322,7 +319,6 @@
             "hic_trim": {
                 "type": "boolean",
                 "description": "Trim HiC short reads.",
-                "default": false,
                 "meta": ["hic_trim"]
             },
             "hic_F": {

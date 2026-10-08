@@ -29,7 +29,7 @@ hifiasm's `--h1` and `--h2` mode, and converts both phased GFA outputs to FASTA.
 The original hifiasm graphs and logs are published under the source sample.
 Haplotypes become separate downstream samples named `individual-hap1` and
 `individual-hap2`, retaining `source_sample` and `haplotype` metadata. Reserve
-these derived sample names: do not use them as other input sample names.
+these derived sample names: the pipeline rejects collisions with other input sample names.
 
 Compressed assemblies are published at:
 
@@ -55,7 +55,8 @@ measure switch errors or parental phase accuracy. The aggregate report lists the
 | Merfin / DeepVariant HiFi polishing | Defer until supported models and evidence demonstrate improvement without collapsing haplotypes. |
 | Shhquis contact-driven reorientation | Defer pending comparison with the existing YaHS path. |
 
-The phased assembly routing has an nf-test stub regression covering two samples
+The phased assembly routing has an nf-test stub regression and a standalone
+container-backed routing harness covering two samples
 and four distinct haplotypes. Run it in a configured Nextflow/nf-test environment:
 
 ```bash
