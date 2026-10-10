@@ -111,11 +111,11 @@ workflow PREPARE_SHORTREADS {
                 .map { it -> [ meta: it[0] - it[0].subMap("hic_reads") + [ hic_reads: it[1] ] ] }
         )
 
-    shortreads = trimmed_reads
+    prepared_shortreads = trimmed_reads
         .mix( shortreads.no_trim )
     // add HiC trimmed to those that need it
 
-    shortreads = shortreads
+    shortreads = prepared_shortreads
         .filter { row -> row.meta.hic_trim && row.meta.scaffold_hic }
         .map { row -> [ row.meta.id, row.meta ] }
         .combine(
@@ -135,7 +135,7 @@ workflow PREPARE_SHORTREADS {
                 ]
         }
         .mix(
-            trimmed_reads
+            prepared_shortreads
                 .filter { row -> !(row.meta.hic_trim && row.meta.scaffold_hic) }
                 .map { it-> [meta: it.meta - it.meta.subMap("hic_reads") + [hic_reads: null]]}
         )
