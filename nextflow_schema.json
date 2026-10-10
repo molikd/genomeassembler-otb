@@ -38,7 +38,7 @@
                 },
                 "fhr_container": {
                     "type": "string",
-                    "default": "fhr-nextflow:0.1.0",
+                    "default": "docker.io/library/fhr-nextflow:0.1.0",
                     "description": "FHR converter container. Build the bundled Dockerfile or supply an accessible image containing FHR-File-Converter 0.3.0."
                 },
                 "email": {

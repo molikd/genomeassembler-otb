@@ -6,6 +6,7 @@ import shutil
 import gzip
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -17,6 +18,11 @@ parser.add_argument('--nextflow', default='nextflow')
 parser.add_argument('--profile', choices=['docker'], help='Run FHR command tasks in the bundled container')
 args = parser.parse_args()
 root = Path(__file__).resolve().parents[2]
+# Keep this isolated harness aligned with production container resolution.
+pipeline_config = (root / 'nextflow.config').read_text()
+fhr_container = re.search(r"(?m)^\s*fhr_container\s*=\s*'([^']+)'", pipeline_config).group(1)
+assert json.loads((root / 'nextflow_schema.json').read_text())['$defs']['input_output_options']['properties']['fhr_container']['default'] == fhr_container
+docker_registry = re.search(r"(?m)^docker\.registry\s*=\s*'([^']+)'", pipeline_config).group(1)
 
 
 def run(directory, config, *, success=True, sample_id=None, disabled=False):
@@ -55,10 +61,12 @@ trace.overwrite = true
 params.sample_id = null
 params.outdir = '@WORK@/results'
 params.publish_dir_mode = 'copy'
-params.fhr_container = 'fhr-nextflow:0.1.0'
+params.fhr_container = '@CONTAINER@'
+docker.registry = '@REGISTRY@'
+trace.fields = 'task_id,name,status,container'
 includeConfig '@ROOT@/conf/modules/fhr.config'
 profiles { docker { docker.enabled = true } }
-'''.replace('@ROOT@', str(root)).replace('@WORK@', str(work)))
+'''.replace('@ROOT@', str(root)).replace('@WORK@', str(work)).replace('@CONTAINER@', fhr_container).replace('@REGISTRY@', docker_registry))
     (work / 'main.nf').write_text('''
 include { FHR_EXPORT; loadFhrConfig; fhrRecord; assemblyOutputs; fhrSampleId } from '@ROOT@/subworkflows/local/fhr/main'
 include { addPolishedAssembly } from '@ROOT@/subworkflows/local/polishing/utils'
@@ -112,6 +120,9 @@ workflow {
     with (work / 'trace.txt').open() as trace:
         tasks = list(csv.DictReader(trace, delimiter='\t'))
     assert sum('FHR_PREPARE_SEQUENCE' in task['name'] for task in tasks) == 6
+    if args.profile == 'docker':
+        assert all(task['container'] == ('-' if 'FHR_WRITE_JSON' in task['name'] else fhr_container)
+                   for task in tasks), tasks
     from fhr.cli import checksum, read_metadata, strip_header
     for yaml_path in yaml_files:
         fasta = yaml_path.with_suffix('.fasta')

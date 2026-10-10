@@ -68,7 +68,7 @@ with shared defaults.
 For Docker, build the bundled upstream image first:
 
 ```bash
-docker build -t fhr-nextflow:0.1.0 modules/local/fhr
+docker build -t docker.io/library/fhr-nextflow:0.1.0 modules/local/fhr
 nextflow run . -profile docker --input samplesheet.csv --outdir results \
     --fhr_config fhr_config.json
 ```

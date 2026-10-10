@@ -40,7 +40,7 @@ jobs:
         run: python -m pip install -r tests/fhr/requirements.txt
       - name: Build FHR image
         if: matrix.runtime == 'docker'
-        run: docker build -t fhr-nextflow:0.1.0 modules/local/fhr
+        run: docker build -t docker.io/library/fhr-nextflow:0.1.0 modules/local/fhr
       - name: Verify native export
         if: matrix.runtime == 'native'
         run: python tests/fhr/run.py
