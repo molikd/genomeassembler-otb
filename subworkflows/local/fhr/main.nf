@@ -73,8 +73,8 @@ def fhrRecord(meta, stage, assembly, config) {
 // Metadata lookup continues to use the original samplesheet ID.
 def fhrSampleId(sample) {
     def value = sample.toString()
-    return value ==~ /[A-Za-z0-9][A-Za-z0-9_.-]*/ && !value.startsWith('fhr-encoded-')
-        ? value : 'fhr-encoded-' + value.getBytes('UTF-8').encodeHex().toString()
+    return value.length() <= 100 && value ==~ /[A-Za-z0-9][A-Za-z0-9_.-]*/ && !value.startsWith('fhr-encoded-')
+        ? value : 'fhr-encoded-' + java.security.MessageDigest.getInstance('SHA-256').digest(value.getBytes('UTF-8')).encodeHex().toString()
 }
 
 // Assembly stages have parallel outputs; no arbitrary "final" precedence is applied.

@@ -99,7 +99,7 @@ sample directory. Stage IDs follow the existing genomeqc manifest's naming.
 Parallel scaffold outputs are deduplicated by sample and stage before export.
 Ordinary alphanumeric sample IDs retain their names. IDs containing punctuation
 outside letters, digits, dot, underscore and hyphen (or starting with a non-alphanumeric
-character) are encoded as `fhr-encoded-` followed by their UTF-8 bytes in hexadecimal.
+character), and IDs longer than 100 characters, are encoded as `fhr-encoded-` followed by the SHA-256 digest of their UTF-8 bytes. This keeps filenames bounded even after stage names and extensions are appended.
 The prefix is reserved: literal IDs starting with it are also encoded, preventing
 collisions. Metadata config keys always use the original samplesheet ID; output
 directories and filenames use the encoded ID when needed.

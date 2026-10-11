@@ -4,6 +4,7 @@ import argparse
 import csv
 import shutil
 import gzip
+import hashlib
 import json
 import os
 import re
@@ -83,8 +84,10 @@ workflow {
     assert third.polished.keySet() == ['medaka', 'pilon', 'dorado'] as Set
     legacy = addPolishedAssembly([polished: [polished_dorado: file('a/genome.fa')]], 'pilon', file('b/genome.fa.gz'))
     assert legacy.polished.keySet() == ['dorado', 'pilon'] as Set
-    ids = ['sample+1', 'sample:1', '../bad', 'fhr-encoded-73616d706c652b31']
+    ids = ['sample+1', 'sample:1', '../bad', 'fhr-encoded-76be6d1bc2d3fd50cc238a8ed0e5df9570afe5f1340a42d3897a3fd3edcf6648', '+' * 120, 'a' * 240, 'α' * 120]
     assert ids.collect { fhrSampleId(it) }.toSet().size() == ids.size()
+    assert ids.every { fhrSampleId(it).getBytes('UTF-8').length <= 100 }
+    assert fhrSampleId('ordinary-sample') == 'ordinary-sample'
     samples = Channel.of(
         [id: params.sample_id ?: 'alpha-hap1', source_sample: 'alpha', strategy: 'single',
          assembler_hifi: 'hifiasm', assembly: file('a/genome.fa'),
@@ -152,16 +155,16 @@ workflow {
     assert 'made_up_field' in run(work, invalid, success=False)
     print('PASS: missing sample, required field and unknown FHR field are rejected')
     # Preserve the samplesheet-ID contract while keeping internal filenames safe.
-    for sample in ['sample+1', 'sample:1', '../bad', 'fhr-encoded-73616d706c652b31']:
+    for sample in ['sample+1', 'sample:1', '../bad', 'fhr-encoded-76be6d1bc2d3fd50cc238a8ed0e5df9570afe5f1340a42d3897a3fd3edcf6648', '+' * 120, 'a' * 240]:
         shutil.rmtree(work / 'results')
         config['samples'][sample] = {'genome': sample, 'taxon': config['samples']['alpha']['taxon']}
         run(work, config, sample_id=sample)
-        encoded = 'fhr-encoded-' + sample.encode('utf-8').hex()
+        encoded = 'fhr-encoded-' + hashlib.sha256(sample.encode('utf-8')).hexdigest()
         outputs = list((work / 'results' / encoded).rglob('*.fhr.yaml'))
         assert len(outputs) == 5, outputs
         assert all(path.name.startswith(encoded + '-') for path in outputs)
         assert all(read_metadata(path).genome == sample for path in outputs)
-    print('PASS: punctuation, traversal-like IDs and encoding-prefix collisions are safely encoded')
+    print('PASS: punctuation, traversal-like IDs, encoding-prefix collisions and long IDs use bounded filenames')
     run(work, config, disabled=True)
     assert len((work / 'trace.txt').read_text().splitlines()) == 1
     print('PASS: disabled export schedules no FHR tasks')
