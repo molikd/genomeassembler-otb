@@ -21,6 +21,7 @@ include { POLISH                    } from '../subworkflows/local/polishing/main
 include { SCAFFOLD                  } from '../subworkflows/local/scaffold/main'
 
 // reporting
+include { REPORT_SAMPLES            } from './report_samples'
 include { REPORT                    } from '../modules/local/report/main'
 
 /*
@@ -221,6 +222,8 @@ workflow GENOMEASSEMBLER {
         .fromPath("${projectDir}/assets/report/scripts/*")
         .collect()
 
+    REPORT_SAMPLES(ch_main_scaffolded)
+
     REPORT( report_files,
             report_functions,
             report_scripts,
@@ -230,7 +233,7 @@ workflow GENOMEASSEMBLER {
             busco_files,
             merqury_files,
             ch_collated_versions.collect(),
-            ch_main_scaffolded.map { it -> [sample: [id: it.meta.id, group: it.meta.group]] }.collect()
+            REPORT_SAMPLES.out.groups
     )
 
     _report = REPORT.out.report_html.toList()

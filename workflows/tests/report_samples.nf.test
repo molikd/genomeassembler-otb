@@ -1,0 +1,29 @@
+nextflow_workflow {
+    name "Report sample metadata"
+    script "../report_samples.nf"
+    workflow "REPORT_SAMPLES"
+    tag "workflows"
+
+    test("Parallel scaffold outputs retain one report row per haplotype") {
+        when {
+            workflow {
+                """
+                input[0] = Channel.of(
+                    [meta: [id: 'sampleA-hap1', group: 'family', scaffolds: [hic: 'hic.fa']]],
+                    [meta: [id: 'sampleA-hap2', group: 'family', scaffolds: [hic: 'hic.fa']]],
+                    [meta: [id: 'sampleA-hap1', group: 'family', scaffolds: [ragtag: 'ragtag.fa']]],
+                    [meta: [id: 'sampleB', group: null]],
+                    [meta: [id: 'sampleA-hap2', group: 'family', scaffolds: [ragtag: 'ragtag.fa']]]
+                )
+                """
+            }
+        }
+        then {
+            assert workflow.success
+            def samples = workflow.out.groups[0]*.sample
+            assert samples*.id.sort() == ['sampleA-hap1', 'sampleA-hap2', 'sampleB']
+            assert samples.findAll { it.id.startsWith('sampleA') }.every { it.group == 'family' }
+            assert samples.find { it.id == 'sampleB' }.group == null
+        }
+    }
+}
